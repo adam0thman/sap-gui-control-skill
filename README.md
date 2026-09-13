@@ -13,12 +13,13 @@ background: no screenshots, no coordinate clicking, no stealing focus. You keep 
 |---|---------|------|--------|
 | 0 | OS / `sapcontrol` / ssh | ~free | guidance |
 | 1 | **RFC / BAPI** | ~free | `sap_rfc.py` |
-| 2 | ADT / sapcli | ~free | guidance |
-| 3 | OData / RAP | ~free | guidance |
-| 4 | **AX background GUI control** | low | `ax_okcode.swift` |
-| 5 | SAP GUI scripting (`GuiStartS.jar`) | low | guidance |
-| 6 | WebGUI / HTML | low–med | guidance |
-| 7 | Vision + mouse | **high** | last resort |
+| 2 | Direct DB, **read-only** | ~free | guidance |
+| 3 | ADT / sapcli | ~free | guidance |
+| 4 | OData / RAP | ~free | guidance |
+| 5 | **AX background GUI control** | low | `ax_okcode.swift` |
+| 6 | SAP GUI scripting (`GuiStartS.jar`) | low | guidance |
+| 7 | WebGUI / HTML | low–med | guidance |
+| 8 | Vision + mouse | **high** | last resort |
 
 The decision table for picking between them — and for splitting one task across several — is in
 [SKILL.md](skills/sap-gui-control/SKILL.md).
@@ -38,7 +39,7 @@ swift $SK/ax_okcode.swift run   "ECD (2)" "/nSE16"
 swift $SK/ax_okcode.swift press "ECD (2)" "Back (F3)"
 
 # why is input failing? (never guess)
-bash $SK/tier3_preflight.sh
+bash $SK/gui_preflight.sh
 ```
 
 ## Why it exists
@@ -54,7 +55,7 @@ is attached to the SAP GUI, blocking input."* That dialog never existed. The rea
 - **sessions sharing identical geometry** — several SAP windows open full-screen at the same
   coordinates, so a click lands on the topmost one, not the one you meant.
 
-`tier3_preflight.sh` distinguishes all three, so the answer is measured instead of guessed.
+`gui_preflight.sh` distinguishes all three, so the answer is measured instead of guessed.
 
 ## Install
 

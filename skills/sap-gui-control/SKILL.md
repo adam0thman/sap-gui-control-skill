@@ -21,12 +21,17 @@ SK=~/.claude/skills/sap-gui-control/scripts
 |---|---------|------|-------------------|-------------|
 | 0 | OS / `sapcontrol` / ssh | ~free | no | guidance |
 | 1 | **RFC / BAPI** | ~free | no | **`sap_rfc.py`** |
-| 2 | ADT / sapcli (HTTP) | ~free | no | guidance |
-| 3 | OData / RAP | ~free | no | guidance |
-| 4 | **AX background GUI control** | low | **no** | **`ax_okcode.swift`** |
-| 5 | SAP GUI scripting (`GuiStartS.jar`) | low | no | guidance |
-| 6 | WebGUI / HTML (browser) | low–med | browser only | guidance |
-| 7 | Vision + mouse (computer-use) | **high** | **yes** | last resort |
+| 2 | Direct DB, **read-only** | ~free | no | guidance |
+| 3 | ADT / sapcli (HTTP) | ~free | no | guidance |
+| 4 | OData / RAP | ~free | no | guidance |
+| 5 | **AX background GUI control** | low | **no** | **`ax_okcode.swift`** |
+| 6 | SAP GUI scripting (`GuiStartS.jar`) | low | no | guidance |
+| 7 | WebGUI / HTML (browser) | low–med | browser only | guidance |
+| 8 | Vision + mouse (computer-use) | **high** | **yes** | last resort |
+
+0–4 are headless, 5–7 need a session, 8 needs the screen. The order is
+**preference, not raw speed** — channel 2 is often the fastest thing on the list and
+still ranks below RFC, because cheap is not the same as correct or safe.
 
 Pick by what the step actually is:
 
@@ -34,16 +39,18 @@ Pick by what the step actually is:
 |---|---|---|
 | Is the system up? work processes, syslog, dispatcher queues | **0** | Needs no SAP login — works when SAP GUI cannot even log on |
 | Read table contents, check a data state | **1** | `sap_rfc.py table` |
+| A read RFC can't do — joins, aggregations, very large result sets | **2** | read-only; see the traps below |
+| ABAP stack is down but you still need data | **2** or **0** | the DB is usually still up |
 | User, roles, authorizations | **1** | `BAPI_USER_GET_DETAIL` |
 | Which transport is imported where | **1** or **0** | `E070`/`E071`, or `tp`/STMS at OS level |
 | Job status / scheduling | **1** | `TBTCO`, or the XBP BAPIs |
 | Put a file on the SAP server (SAR/PAT, data file) | **0** | `scp` — **not** a GUI upload |
-| ABAP source, dev objects, transports, ABAP Unit | **2** | sapcli / ADT |
-| Published S/4 business API | **3** | where an OData service exists |
-| A transaction with no headless equivalent | **4** | background, no screen takeover |
-| The same GUI routine, repeatedly | **5** | record once, replay deterministically |
-| Screen only exists in HTML GUI, or AX cannot address it | **6** | |
-| Nothing above works | **7** | say so explicitly before using it |
+| ABAP source, dev objects, transports, ABAP Unit | **3** | sapcli / ADT |
+| Published S/4 business API | **4** | where an OData service exists |
+| A transaction with no headless equivalent | **5** | background, no screen takeover |
+| The same GUI routine, repeatedly | **6** | record once, replay deterministically |
+| Screen only exists in HTML GUI, or AX cannot address it | **7** | |
+| Nothing above works | **8** | say so explicitly before using it |
 
 ### Route each step, not the whole task
 
@@ -54,7 +61,7 @@ Do not pick one channel because the *hardest* step needs it. Decompose. A Suppor
 | Check current component / SP levels | **1** (`CVERS`, `PAT03`) |
 | Check disk space in `/usr/sap/trans` | **0** (ssh) |
 | Get the `.SAR`/`.PAT` onto the server | **0** (`scp` into `EPS/in`) |
-| Define and import the queue in SPAM | **4** |
+| Define and import the queue in SPAM | **5** |
 | Watch import progress | **1** / **0** — *not* the SPAM screen |
 | Verify final SP levels | **1** |
 
@@ -67,7 +74,7 @@ Copy the file to the server and use *"Load Packages from **Application Server**"
 1. **Verify through a different channel than you acted on.** Drove something in the GUI? Confirm it
    over RFC. Re-reading the same screen mostly proves the screen still renders.
 2. **The channel that can *act* is rarely the best one to *watch*.** Long-running work — client
-   copies, SP imports, transports — should be monitored on 0/1 even when launched on 4.
+   copies, SP imports, transports — should be monitored on 0/1 even when launched on 5.
 
 **Anti-patterns:** using the GUI to read something a table read answers; watching progress on the
 screen you launched from; picking one channel for an entire task.
@@ -91,7 +98,35 @@ failure in `RETURN` rather than raising, and committing past that is how half-wr
 Committing against `CREDS_ENV=prd` is refused unless `--allow-prod` is passed, which requires
 confirming with the user first.
 
-## Channel 4 — background GUI control (AX)
+## Channel 2 — direct database, read-only
+
+Query the SAP schema directly (`hdbsql`, `sqlplus`, `db2`, `isql`), normally over ssh to the DB
+host — `creds find hana` lists the entries, which carry tenant, ports and a `connect` hint, and
+often a `requires: vpn:...` prerequisite.
+
+**Use it when RFC genuinely cannot cope:** joins and aggregations (`RFC_READ_TABLE` does neither),
+very large result sets, or rows wider than `RFC_READ_TABLE`'s ~512-byte limit. It is also the
+fallback when the **ABAP stack is down but the database is up**.
+
+**Read-only. Never write.** Writing behind the application server is unsupported by SAP, corrupts
+state that ABAP believes it owns, and voids support. There is no case where it is the right call.
+
+Correctness traps that disqualify it for casual use — this is why it ranks below RFC despite being
+faster:
+
+- **No client handling.** You must filter `MANDT` yourself; forget it and you silently read another
+  client's data.
+- **Pool and cluster tables are not plain tables.** Classic ECC keeps `BSEG` inside cluster `RFBLG`;
+  reading it directly yields compressed binary, not rows. S/4HANA converted many to transparent —
+  verify per table rather than assuming.
+- **Table buffering** means the database can disagree with what the application server is serving.
+- **In S/4HANA many "tables" are CDS or compatibility views**, so the physical shape may not match
+  what SE16 shows you.
+- Often prohibited by DBA or audit policy. Check before touching production.
+
+Prefer channel 1 for anything it can answer. Reach here for the reads it cannot.
+
+## Channel 5 — background GUI control (AX)
 
 For transactions with no headless equivalent. No screenshots, no coordinates, no focus stealing.
 
@@ -108,20 +143,20 @@ guessing when a name matches several windows. Set `SAP_PROD_SIDS=S4P,ECP` to hav
 actions refuse those SIDs without `--allow-prod` — **with it unset there is no protection on this
 path**, because a window title carries a SID but not an environment.
 
-## Channels 0, 2, 3, 5, 6 — no script here yet
+## Channels 0, 3, 4, 6, 7 — no script here yet
 
 Use them directly; they are still usually the right answer.
 
 - **0 — OS / sapcontrol**: `ssh <host>` (hosts are in `~/.ssh/config.d/local-creds`), then
   `sapcontrol -nr <nr> -function GetProcessList` / `ABAPGetWPTable` / `ABAPReadSyslog`. Works when
   the ABAP stack is jammed and no login is possible.
-- **2 — ADT / sapcli**: ABAP source, activation, transports, ABAP Unit over HTTP.
-- **3 — OData / RAP**: published S/4 APIs. Note S/4HANA **Cloud** blocks RFC entirely, so there
-  channel 3 replaces channel 1.
-- **5 — SAP GUI scripting**: SAP GUI for Java ships a JavaScript engine;
+- **3 — ADT / sapcli**: ABAP source, activation, transports, ABAP Unit over HTTP.
+- **4 — OData / RAP**: published S/4 APIs. Note S/4HANA **Cloud** blocks RFC entirely, so there
+  channel 4 replaces channel 1.
+- **6 — SAP GUI scripting**: SAP GUI for Java ships a JavaScript engine;
   `java -jar GuiStartS.jar -f script.js` replays a recorded routine deterministically. Better than
-  channel 4 for anything repeated.
-- **6 — WebGUI**: the same dynpros rendered as HTML, drivable through a browser.
+  channel 5 for anything repeated.
+- **7 — WebGUI**: the same dynpros rendered as HTML, drivable through a browser.
 
 ## When input fails, never guess
 
@@ -130,7 +165,7 @@ Open/Save dialog attached to the window" — three separate sessions reported ex
 false every time. Run:
 
 ```bash
-bash $SK/tier3_preflight.sh     # exit 0 clear · 1 warnings · 2 blocked
+bash $SK/gui_preflight.sh     # exit 0 clear · 1 warnings · 2 blocked
 ```
 
 It distinguishes the real causes:
@@ -190,7 +225,7 @@ screen — exposed 9 static texts and none of the numbers. AX reads **dynpro** s
 
 ## Requirements
 
-macOS with SAP GUI for Java, and Accessibility permission for the calling process, for channel 4.
+macOS with SAP GUI for Java, and Accessibility permission for the calling process, for channel 5.
 Channel 1 needs `pyrfc` built against the SAP NW RFC SDK (it is not on PyPI) — see `INSTALL.md`.
 Sessions must already be logged on; these scripts drive existing sessions, they do not log on.
 Credentials come only from `creds exec`; nothing is stored here and nothing secret is printed.

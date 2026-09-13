@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tier-3 (computer-use) preflight for SAP GUI for Java on macOS.
+# Preflight for driving SAP GUI for Java on macOS (channel 5).
 #
 # Answers ONE question before any click/type is attempted:
 #   "If input fails right now, why?"
@@ -17,7 +17,7 @@ block() { printf 'BLOCK  %s\n' "$*"; verdict=2; }
 warn()  { printf 'WARN   %s\n' "$*"; [ "$verdict" -lt 1 ] && verdict=1; return 0; }
 ok()    { printf 'ok     %s\n' "$*"; }
 
-say "=== Tier-3 preflight: $APP ==="
+say "=== SAP GUI preflight: $APP ==="
 
 # ---------------------------------------------------------------- 1. frontmost
 # computer-use enforces a frontmost-app tier check. Browsers are tier "read"

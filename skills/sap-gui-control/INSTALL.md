@@ -13,7 +13,7 @@ Skills load at session start — **restart Claude** after installing.
 
 ## Requirements
 
-**For the GUI scripts** (`ax_okcode.swift`, `tier3_preflight.sh`):
+**For the GUI scripts** (`ax_okcode.swift`, `gui_preflight.sh`):
 
 - macOS with SAP GUI for Java
 - Swift (Xcode Command Line Tools)
@@ -36,6 +36,6 @@ Skills load at session start — **restart Claude** after installing.
 ## Verify
 
 ```bash
-bash ~/.claude/skills/sap-gui-control/scripts/tier3_preflight.sh
+bash ~/.claude/skills/sap-gui-control/scripts/gui_preflight.sh
 creds exec <system-id> -- python3 ~/.claude/skills/sap-gui-control/scripts/sap_rfc.py info
 ```
