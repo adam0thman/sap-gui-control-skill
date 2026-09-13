@@ -1,10 +1,27 @@
 # sap-gui-control
 
-A Claude **skill** for working with SAP on macOS — read and drive **SAP GUI for Java**
-in the background, and reach for **RFC** instead whenever the task doesn't really need a screen.
+A Claude **skill** for interacting with SAP efficiently — by choosing the right **channel** for
+each step of a task rather than reaching for the GUI by reflex.
 
-No screenshots. No coordinate clicking. No stealing focus. You keep using your machine while
-Claude works.
+Most SAP work does not need a screen at all. The skill routes each step to the cheapest channel
+that can do it, and when the GUI genuinely is required it drives **SAP GUI for Java** in the
+background: no screenshots, no coordinate clicking, no stealing focus. You keep using your machine.
+
+## Channels
+
+| # | Channel | Cost | Status |
+|---|---------|------|--------|
+| 0 | OS / `sapcontrol` / ssh | ~free | guidance |
+| 1 | **RFC / BAPI** | ~free | `sap_rfc.py` |
+| 2 | ADT / sapcli | ~free | guidance |
+| 3 | OData / RAP | ~free | guidance |
+| 4 | **AX background GUI control** | low | `ax_okcode.swift` |
+| 5 | SAP GUI scripting (`GuiStartS.jar`) | low | guidance |
+| 6 | WebGUI / HTML | low–med | guidance |
+| 7 | Vision + mouse | **high** | last resort |
+
+The decision table for picking between them — and for splitting one task across several — is in
+[SKILL.md](skills/sap-gui-control/SKILL.md).
 
 ## What it does
 

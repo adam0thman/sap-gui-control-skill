@@ -46,7 +46,9 @@ func walk(_ e: AXUIElement, _ d: Int = 0, _ f: (AXUIElement) -> Void) {
     for c in kids(e) { walk(c, d + 1, f) }
 }
 
-let a = CommandLine.arguments
+var a = CommandLine.arguments
+let allowProd = a.contains("--allow-prod")
+a.removeAll { $0 == "--allow-prod" }
 guard a.count >= 3 else {
     FileHandle.standardError.write("usage: probe|type|run|press <window-substring> [text|button]\n".data(using: .utf8)!)
     exit(64)
@@ -67,6 +69,22 @@ guard let win = matches.first else {
 // Silently picking among identical titles is how you drive the wrong session.
 if matches.count > 1 { print("WARN: '\(want)' matched \(matches.count) windows; be more specific.") }
 let title = s(win, kAXTitleAttribute) ?? "?"
+
+/// A window title ("S4Q (1) (300)") carries the SID but NOT the environment, so
+/// unlike the RFC path there is no authoritative prod signal available here.
+/// This is therefore an explicit opt-in list, not inference:
+///     export SAP_PROD_SIDS=S4P,ECP,PRD
+/// With SAP_PROD_SIDS unset there is NO protection on the GUI path — say so
+/// rather than implying a safety net that does not exist.
+func refuseIfProd() {
+    let sid = title.split(separator: " ").first.map(String.init) ?? ""
+    let prod = (ProcessInfo.processInfo.environment["SAP_PROD_SIDS"] ?? "")
+        .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).uppercased() }
+    guard !sid.isEmpty, prod.contains(sid.uppercased()), !allowProd else { return }
+    print("REFUSED: \(sid) is listed in SAP_PROD_SIDS and this action can change state.")
+    print("         Confirm with the user, then re-run with --allow-prod.")
+    exit(2)
+}
 
 /// The command toolbar holds, in order: [0] ✓ Enter, [1] show/hide toggle,
 /// [2] the command field, [3] Save, [4] Back … Only [2] and [4]+ are labelled,
@@ -142,6 +160,7 @@ if let p = blockingPopup() {
 }
 
 if mode == "press" {
+    refuseIfProd()
     var b: AXUIElement?
     walk(win) { e in if b == nil, role(e) == kAXButtonRole as String, label(e) == arg { b = e } }
     guard let btn = b else { print("FAIL: no button labelled '\(arg)'"); exit(3) }

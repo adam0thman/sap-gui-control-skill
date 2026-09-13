@@ -5,12 +5,18 @@ installed to `~/.claude/skills/`. There is no server and no build step.
 
 ## Working rules
 
+- **Route each step to the cheapest channel that can do it** — see "Choosing a channel" in
+  SKILL.md. Decompose a task; do not pick one channel because the hardest step needs it.
 - **Headless before GUI.** Try `sap_rfc.py` first. Most questions — table contents, job status,
-  system info — never need a screen.
+  system info, transport state — never need a screen.
+- **Verify through a different channel than you acted on.** Re-reading the screen you just drove
+  mostly proves the screen still renders.
 - **Never screenshot SAP GUI to find out what is on it.** Read it through the accessibility tree.
 - **Never guess why input failed.** Run `scripts/tier3_preflight.sh`; it names the actual cause.
 - Credentials only via `creds exec <id>`; never echo `CREDS_PASSWORD`.
-- Production writes need explicit authorization in-conversation.
+- Production writes need explicit authorization in-conversation. `sap_rfc.py` enforces this from
+  `CREDS_ENV`; the GUI path can only honour an opt-in `SAP_PROD_SIDS` list, so it is not a safety
+  net you can rely on.
 - Prefer routes that don't take over the screen — the user is still using their machine.
 - Report honestly: "it ran" and "I verified the result" are different claims.
 
