@@ -1,98 +1,83 @@
-# sapgui-mcp
+# sap-gui-control
 
-**Cost-routed MCP server for SAP.** One tool, four tiers. It runs your SAP task via
-the **cheapest mechanism that can do it**, and only falls back to expensive vision
-loops when nothing else works.
+A Claude **skill** for working with SAP on macOS — read and drive **SAP GUI for Java**
+in the background, and reach for **RFC** instead whenever the task doesn't really need a screen.
 
-```
-Tier 0  API          RFC/BAPI · OData · sapcli/ADT        ~free, headless
-Tier 1  Recorded     script.js (Java) · VBScript (Win)    ~free after capture
-Tier 2  WebGUI       Playwright on the HTML GUI            low cost
-Tier 3  Computer-use vision + mouse (SAP GUI for Java)     expensive — last resort
-```
+No screenshots. No coordinate clicking. No stealing focus. You keep using your machine while
+Claude works.
 
-The router decides from a **capability catalog** (a free lookup — never a vision
-loop just to pick a tier), falls down the ladder on failure, and can **promote** a
-routine you did once in Tier 2/3 into a recorded Tier-1 script so the next run is
-near-free.
-
-> **Status:** M0 — scaffolding & contracts. The router, catalog, models, prod guard
-> and test harness are in place; tier backends land in M1+. See
-> [`docs/02-roadmap.md`](docs/02-roadmap.md).
-
-## Why
-
-SAP GUI for **Java** (macOS/Linux) has **no external live-attach** — COM scripting
-is Windows-only — so interactive AI control of the Java desktop is only possible via
-vision (Tier 3), which is costly. This project treats vision as the fuel of last
-resort and pushes every task to a cheaper, deterministic tier first. See
-[`docs/01-architecture.md`](docs/01-architecture.md).
-
-## Design docs
-
-- [`docs/01-architecture.md`](docs/01-architecture.md) — routing spec, capability-catalog schema, backend contract, security model.
-- [`docs/02-roadmap.md`](docs/02-roadmap.md) — milestones, pass/fail criteria, positive + negative testing, the develop→test→verify→fix loop.
-
-## Develop
+## What it does
 
 ```bash
-uv sync --extra dev
-uv run pytest          # unit tests (integration tests are opt-in: -m integration)
-uv run ruff check .
-uv run mypy
+SK=~/.claude/skills/sap-gui-control/scripts
+
+# headless first — no GUI involved at all
+creds exec <system-id> -- python3 $SK/sap_rfc.py info
+creds exec <system-id> -- python3 $SK/sap_rfc.py table T000 MANDT,MTEXT --rows 5
+
+# GUI, driven in the background
+swift $SK/ax_okcode.swift probe "ECD (2)"
+swift $SK/ax_okcode.swift run   "ECD (2)" "/nSE16"
+swift $SK/ax_okcode.swift press "ECD (2)" "Back (F3)"
+
+# why is input failing? (never guess)
+bash $SK/tier3_preflight.sh
 ```
 
-### Spec-Driven Development (spec-kit)
+## Why it exists
 
-This repo uses [github/spec-kit](https://github.com/github/spec-kit) — specs are
-written before implementation and drive it. The project's binding principles live in
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md): the cost ladder,
-programmatic-over-screen-driving, positive **and** negative testing, the prod guard,
-and the Definition of Done. Generated specs never override it.
+Driving SAP GUI on macOS fails in ways that are invisible on screen, so an assistant tends to
+invent an explanation. Three separate sessions independently reported *"a macOS Open/Save dialog
+is attached to the SAP GUI, blocking input."* That dialog never existed. The real causes were:
 
-Workflow for a new milestone or feature:
+- **the frontmost-app policy** — a browser in front blocks clicks *and* typing; a terminal or IDE
+  blocks typing but allows clicks. That asymmetry is diagnostic: a modal dialog would block both.
+- **a SAP dynpro popup owning input** — these are separate windows with `AXModal=false` and no
+  attached sheet, so sheet/modal checks report "all clear" while the session is fully blocked.
+- **sessions sharing identical geometry** — several SAP windows open full-screen at the same
+  coordinates, so a click lands on the topmost one, not the one you meant.
 
-| Step | Command | Produces |
-|---|---|---|
-| 1 | `/speckit-specify` | *what* to build (requirements, user stories) |
-| 2 | `/speckit-clarify` *(optional)* | resolves ambiguity before planning |
-| 3 | `/speckit-plan` | technical approach, tier placement |
-| 4 | `/speckit-tasks` | actionable task list |
-| 5 | `/speckit-analyze` *(optional)* | consistency check vs. the constitution |
-| 6 | `/speckit-implement` | executes the tasks |
+`tier3_preflight.sh` distinguishes all three, so the answer is measured instead of guessed.
 
-Artifacts land in `specs/`. The constitution is the contract: every plan must state
-which **tier** a capability belongs to and why a cheaper tier can't do it.
+## Install
 
-Re-initialise or update the tooling:
 ```bash
-uvx --from git+https://github.com/github/spec-kit.git specify init --here --force --integration claude
+cp -r skills/sap-gui-control ~/.claude/skills/
 ```
 
-Credentials are resolved **only** through the `creds` CLI (`creds exec <id> -- ...`);
-no secrets live in this repo or the catalog. Production writes are refused unless
-explicitly authorized.
+User-level on purpose — SAP work happens in many sessions and directories, not one repo.
+See [INSTALL.md](skills/sap-gui-control/INSTALL.md).
 
-## Credits & kudos
+**Requirements**: macOS, SAP GUI for Java, and Accessibility permission for the calling process.
+The RFC script additionally needs `pyrfc` built against the SAP NW RFC SDK (it is not on PyPI).
+Credentials come only from `creds exec`; nothing secret is stored or printed.
 
-This project **forks and builds on the excellent [Hochfrequenz/sapgui.mcp](https://github.com/Hochfrequenz/sapgui.mcp)** (MIT) —
-which pioneered the backend-routed shape we extend (COM desktop + Playwright WebGUI).
-Huge thanks to the maintainers.
+## What works, and what doesn't
 
-Patterns and inspiration gratefully borrowed from (all MIT unless noted):
+Measured against SAP GUI for Java 8.10rev4 — not assumed:
 
-- [mario-andreschak/mcp-sap-gui](https://github.com/mario-andreschak/mcp-sap-gui) — the Tier-3 computer-use tool shapes.
-- [kts982/mcp-sap-gui](https://github.com/kts982/mcp-sap-gui) — the Windows COM tool taxonomy (fields, ALV grids, table controls, trees, preview, confirmation points).
-- [oisee/odata_mcp_go](https://github.com/oisee/odata_mcp_go) & [lemaiwo/btp-sap-odata-to-mcp-server](https://github.com/lemaiwo/btp-sap-odata-to-mcp-server) — Tier-0 OData→MCP exposure.
-- [jfilak/sapcli](https://github.com/jfilak/sapcli) (Apache-2.0) — Tier-0 ADT / table-read / report-run.
-- [playwright-sap](https://playwright-sap.dev) — SAP-aware locators for the WebGUI tier.
-- [marianfoo/sap-ai-mcp-servers](https://github.com/marianfoo/sap-ai-mcp-servers) — the map of the SAP MCP ecosystem.
+**Works with SAP in the background** — reading the whole screen as text; writing text via
+`AXSelectedTextRange` + `AXSelectedText`; `AXPress` on buttons, including ones that round-trip to
+the SAP server; detecting a blocking popup via `AXFocusedWindow`; selecting text inside input fields.
 
-See [`NOTICE`](NOTICE) for license attributions.
+**Does not work** — `AXValue` is settable nowhere and *silently discards writes while reporting
+success* (the trap that makes AX look impossible); `AXFocused` is likewise accepted and discarded;
+`CGEvent.postToPid` never arrives while the app is backgrounded; `AXEnhancedUserInterface` is not
+implemented; classic SAP **list** output exposes almost nothing to accessibility, so list content
+must come from RFC rather than screen-scraping.
 
-Not affiliated with or endorsed by SAP SE. "SAP", "SAP GUI", "S/4HANA", "Fiori" are
-trademarks of SAP SE.
+Some SAP functions also call a **frontend component** that SAP GUI for Java does not implement —
+they fail silently, with the preflight reporting clear. SCC3's *Monitor* button is one.
+
+## History
+
+This began as an MCP server with a cost-routing engine. That work is preserved at tag
+[`v0.1.0`](../../releases/tag/v0.1.0) and was removed from `main`: the capability people actually
+used was the skill, and the router had only one tier to route between. The genuinely hard-won
+part — the pyrfc / NW RFC SDK wiring — survives as `sap_rfc.py`.
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT — see [LICENSE](LICENSE).
+
+Not affiliated with or endorsed by SAP SE. "SAP", "SAP GUI" and "S/4HANA" are trademarks of SAP SE.

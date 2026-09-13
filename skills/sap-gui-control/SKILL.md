@@ -116,16 +116,31 @@ statistic visible on screen, produced 9 static texts and none of the numbers.
 So the AX tier reads **dynpro screens** well and **list output** not at all. When the content you
 need is list output, do not screen-scrape it — take it from RFC / a table read instead.
 
-## Prefer a cheaper route first
+## Prefer a cheaper route first — GUI control is the last resort
 
-GUI control is the **last** resort. Before driving the GUI, check whether the task can be done:
+Driving the GUI is the most fragile way to talk to SAP. Before reaching for it, check
+whether the task can be done headlessly. `scripts/sap_rfc.py` covers the common cases with
+no GUI, no session and no screen involvement at all:
 
-1. **RFC/BAPI** (`pyrfc`) — headless, deterministic, no GUI at all
-2. **OData / sapcli / ADT** — table reads, running reports, dev-object work
-3. **This skill (AX)** — when it genuinely needs the GUI
+```bash
+SK=~/.claude/skills/sap-gui-control/scripts
+
+creds exec <system-id> -- python3 $SK/sap_rfc.py info
+creds exec <system-id> -- python3 $SK/sap_rfc.py call BAPI_USER_GET_DETAIL --args '{"USERNAME":"X"}'
+creds exec <system-id> -- python3 $SK/sap_rfc.py table T000 MANDT,MTEXT --rows 5
+creds exec <system-id> -- python3 $SK/sap_rfc.py table MARA MATNR,MTART --where "MTART = 'FERT'"
+```
+
+Credentials come only from what `creds exec` injects — nothing is stored and nothing secret
+is printed. Order of preference:
+
+1. **RFC / BAPI** (`sap_rfc.py`) — headless and deterministic
+2. **A table read or report** — often answers the question without a transaction at all
+3. **The GUI, via this skill** — when it genuinely needs a screen
 4. **Vision + mouse** — only when AX cannot address the control
 
-For SNOTE specifically, much is reachable over RFC — check before opening the GUI.
+For SNOTE, client-copy status, job monitoring and most read-only questions, RFC or a table
+read is enough. Reach for the GUI only when the function truly has no headless equivalent.
 
 ## Requirements
 

@@ -1,47 +1,34 @@
-sapgui-mcp
+sap-gui-control
 Copyright (c) 2026 adam0thman
 
-This product includes software and/or design patterns from the following
-open-source projects. Grateful thanks to their authors and maintainers.
+All code here was written for this project. No third-party source is included, so
+this notice is acknowledgement rather than attribution.
 
 --------------------------------------------------------------------------------
-Baseline (forked / extended)
+Prior art that informed the approach
 --------------------------------------------------------------------------------
-Hochfrequenz/sapgui.mcp — MIT License
-  https://github.com/Hochfrequenz/sapgui.mcp
-  Backend-routed MCP server (COM desktop + Playwright WebGUI). This project
-  extends its architecture with Tier 0 (RFC/OData/sapcli), Tier 1 (recorded
-  scripts), a Tier 3 computer-use lane, and the cost-routing catalog.
+An earlier iteration of this project was an MCP server (preserved at tag v0.1.0),
+and its design was informed by surveying these. None of their code was used, and
+the MCP has since been removed in favour of a skill.
 
---------------------------------------------------------------------------------
-Patterns & inspiration
---------------------------------------------------------------------------------
-mario-andreschak/mcp-sap-gui — MIT License
-  https://github.com/mario-andreschak/mcp-sap-gui
-  Tier-3 computer-use tool shapes.
+  Hochfrequenz/sapgui.mcp          https://github.com/Hochfrequenz/sapgui.mcp
+    Backend-routed MCP for SAP (COM desktop + Playwright WebGUI). Originally
+    named as a fork baseline; in the end nothing was taken from it.
 
-kts982/mcp-sap-gui — MIT License
-  https://github.com/kts982/mcp-sap-gui
-  Windows COM Scripting API tool taxonomy.
+  mario-andreschak/mcp-sap-gui     https://github.com/mario-andreschak/mcp-sap-gui
+  kts982/mcp-sap-gui               https://github.com/kts982/mcp-sap-gui
+    Screenshot-driven and COM Scripting API approaches to SAP GUI automation.
 
-oisee/odata_mcp_go — MIT License
-  https://github.com/oisee/odata_mcp_go
-lemaiwo/btp-sap-odata-to-mcp-server — MIT License
-  https://github.com/lemaiwo/btp-sap-odata-to-mcp-server
-  Tier-0 OData -> MCP exposure.
+  jfilak/sapcli                    https://github.com/jfilak/sapcli
+    Headless ABAP/ADT tooling — the case for doing SAP work without a GUI.
 
-jfilak/sapcli — Apache License 2.0
-  https://github.com/jfilak/sapcli
-  Tier-0 ADT / table-read / report-run.
-
-playwright-sap
-  https://playwright-sap.dev
-  SAP-aware locators for the WebGUI tier.
-
-marianfoo/sap-ai-mcp-servers
-  https://github.com/marianfoo/sap-ai-mcp-servers
-  Curated map of the SAP MCP ecosystem.
+  SAP/PyRFC                        https://github.com/SAP/PyRFC
+    Used as a dependency of scripts/sap_rfc.py, installed from source by the
+    user. Apache-2.0. Not vendored here.
 
 --------------------------------------------------------------------------------
-SAP, SAP GUI, S/4HANA, and Fiori are trademarks of SAP SE. This project is not
+The SAP NW RFC SDK is licensed separately by SAP and is NOT distributed with this
+project. Obtain it from SAP under your own licence.
+
+SAP, SAP GUI, S/4HANA and Fiori are trademarks of SAP SE. This project is not
 affiliated with or endorsed by SAP SE.
