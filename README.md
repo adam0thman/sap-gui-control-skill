@@ -9,17 +9,18 @@ background: no screenshots, no coordinate clicking, no stealing focus. You keep 
 
 ## Channels
 
-| # | Channel | Cost | Status |
-|---|---------|------|--------|
-| 0 | OS / `sapcontrol` / ssh | ~free | guidance |
-| 1 | **RFC / BAPI** | ~free | `sap_rfc.py` |
-| 2 | Direct DB, **read-only** | ~free | guidance |
-| 3 | ADT / sapcli | ~free | guidance |
-| 4 | OData / RAP | ~free | guidance |
-| 5 | **AX background GUI control** | low | `ax_okcode.swift` |
-| 6 | SAP GUI scripting (`GuiStartS.jar`) | low | guidance |
-| 7 | WebGUI / HTML | low–med | guidance |
-| 8 | Vision + mouse | **high** | last resort |
+| # | Channel | Script | Status |
+|---|---------|--------|--------|
+| 0 | OS / SAPControl (no SAP login) | `sap_control.py` | unauthenticated calls verified live |
+| 1 | **RFC / BAPI** | `sap_rfc.py` | verified live incl. write guards |
+| 2 | Direct DB, **read-only** | `sap_db.py` | guard tested; connection unverified |
+| 3 | ADT over HTTP | `sap_adt.py` | diagnosis verified; happy path unverified |
+| 4 | OData / RAP | — | guidance |
+| 5 | **AX background GUI control** | `ax_okcode.swift` | verified live |
+| 6 | SAP GUI scripting | `sap_script.sh` | object model verified; live session unverified |
+| 7 | Vision + mouse | (built-in) | last resort |
+
+Plus `gui_preflight.sh`, which says *why* GUI input is failing instead of leaving you to guess.
 
 The decision table for picking between them — and for splitting one task across several — is in
 [SKILL.md](skills/sap-gui-control/SKILL.md).
