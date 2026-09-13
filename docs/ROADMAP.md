@@ -6,7 +6,7 @@ Status as of 2026-09-13. "Verified" means tested against a real SAP system, not 
 
 | # | Channel | Script | State |
 |---|---------|--------|-------|
-| 0 | OS / `sapcontrol` / ssh | — | guidance only |
+| 0 | OS / SAPControl | `sap_control.py` | **partly verified** — unauthenticated calls live; protected calls need an OS `<sid>adm` account |
 | 1 | RFC / BAPI | `sap_rfc.py` | **verified** — reads, writes, guards, all live |
 | 2 | Direct DB (read-only) | — | guidance only (5 `kind: hana` creds exist) |
 | 3 | ADT over HTTP | `sap_adt.py` | **partly verified** — see below |
@@ -26,8 +26,8 @@ table parsing, BAPIRET2 detection, the prod guard, ADT URL derivation and skill 
 macOS runs the tests plus shell, Python and Swift checks and asserts the skill stays
 self-contained. No dependencies, no build step.
 
-**Channels 3 and 6 implemented.** ADT client with a layered `ping` diagnosis; GUI-scripting runner
-with a verified object model.
+**Channels 0, 3 and 6 implemented.** SAPControl over SOAP (no SAP login needed at all); ADT client
+with a layered `ping` diagnosis; GUI-scripting runner with a verified object model.
 
 ## Not verified yet — do not assume these work
 
@@ -38,6 +38,10 @@ with a verified object model.
 - **ADT happy path.** Every system reached so far rejects basic auth for authenticated services
   (`/sap/public/ping` 200, `/sap/bc/ping` 403), consistent with SNC/SSO-only logon. The failure
   diagnosis is verified; a successful `discovery`/`transports`/`source` call is not.
+- **SAPControl protected calls** (`wp`, `syslog`, `queue`). `instances` and `processes` are
+  verified live and need no credentials. The protected calls authenticate against the OS
+  `<sid>adm` account, not a SAP logon — neither the SAP user nor the two available OS accounts
+  were accepted on the instance tested, so those paths remain unexercised.
 - **Channel 6 against a live session.** `probe` works and the object model is confirmed by
   reflection, but no script has driven a logged-on session, and
   `openConnectionByConnectionString` blocked when tried.
@@ -49,10 +53,6 @@ the command field, so it can navigate but not fill in a screen. The mechanism is
 (`AXSelectedTextRange` + `AXSelectedText` on an `AXTextField`); it needs generalising to address
 fields by label and verify after write. **Requires a logged-on session to develop against** —
 worth doing live rather than shipping blind.
-
-**M4 — channel 0 script.** `sapcontrol` over ssh: process list, work processes, syslog, instance
-state. Valuable because it works when the ABAP stack is jammed and no login is possible, and
-because `kind: ssh` creds already exist. Probably the cheapest remaining win.
 
 **M5 — channel 2 script.** Read-only DB query helper. `kind: hana` creds exist; no client is
 installed locally, so it would run over ssh to the DB host. Must stay read-only and handle the

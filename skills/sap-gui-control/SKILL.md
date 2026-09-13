@@ -19,7 +19,7 @@ SK=~/.claude/skills/sap-gui-control/scripts
 
 | # | Channel | Cost | Takes over screen | Status here |
 |---|---------|------|-------------------|-------------|
-| 0 | OS / `sapcontrol` / ssh | ~free | no | guidance |
+| 0 | **OS / SAPControl** | ~free | no | **`sap_control.py`** |
 | 1 | **RFC / BAPI** | ~free | no | **`sap_rfc.py`** |
 | 2 | Direct DB, **read-only** | ~free | no | guidance |
 | 3 | **ADT / sapcli** (HTTP) | ~free | no | **`sap_adt.py`** |
@@ -80,6 +80,29 @@ Copy the file to the server and use *"Load Packages from **Application Server**"
 screen you launched from; picking one channel for an entire task.
 
 ---
+
+## Channel 0 — SAPControl (no SAP login at all)
+
+`sapstartsrv` runs beside every instance and exposes SAPControl over SOAP on **5<nn>13** (HTTP) /
+**5<nn>14** (HTTPS). It is a separate OS process from the ABAP stack, so it still answers when the
+stack is jammed, every work process is busy, or SAP GUI cannot log on — which is when you need it
+most. **Start here when the question is "is the system even up?"**
+
+```bash
+python3 $SK/sap_control.py --host <host> --instance 00 instances   # no credentials needed
+python3 $SK/sap_control.py --host <host> --instance 00 processes   # no credentials needed
+creds exec <id> -- python3 $SK/sap_control.py wp                   # SM50  (protected)
+creds exec <id> -- python3 $SK/sap_control.py syslog --lines 40     # SM21  (protected)
+creds exec <id> -- python3 $SK/sap_control.py queue                 # dispatcher queues
+```
+
+**Read-only by construction.** SAPControl can also start, stop and restart instances; none of that
+is implemented here and none of it should be added casually.
+
+**The credential trap, measured here:** protected calls authenticate against the **operating system
+user (`<sid>adm`), not a SAP logon**. A perfectly valid SAP user returns `Invalid Credentials`,
+which reads like a wrong password but is not — it is the wrong *kind* of account. `instances` and
+`processes` are normally unprotected and need nothing at all.
 
 ## Channel 1 — RFC / BAPI (preferred)
 
@@ -202,13 +225,10 @@ normal, not a failure), and SAP GUI Scripting must be enabled on both sides
 (`sapgui/user_scripting = TRUE` server-side plus the client setting) or the session objects stay
 invisible.
 
-## Channels 0, 4, 7 — no script here yet
+## Channels 4, 7 — no script here yet
 
 Use them directly; they are still usually the right answer.
 
-- **0 — OS / sapcontrol**: `ssh <host>` (hosts are in `~/.ssh/config.d/local-creds`), then
-  `sapcontrol -nr <nr> -function GetProcessList` / `ABAPGetWPTable` / `ABAPReadSyslog`. Works when
-  the ABAP stack is jammed and no login is possible.
 - **4 — OData / RAP**: published S/4 APIs. Note S/4HANA **Cloud** blocks RFC entirely, so there
   channel 4 replaces channel 1.
 - **7 — WebGUI**: the same dynpros rendered as HTML, drivable through a browser.

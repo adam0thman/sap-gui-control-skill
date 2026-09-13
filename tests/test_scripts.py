@@ -23,6 +23,7 @@ def load(name):
 
 rfc = load("sap_rfc")
 adt = load("sap_adt")
+ctl = load("sap_control")
 
 
 class TableParsing(unittest.TestCase):
@@ -137,6 +138,35 @@ class AdtUrls(unittest.TestCase):
     def test_strip_ns(self):
         self.assertEqual(adt.strip_ns("{http://www.sap.com/adt}collection"), "collection")
         self.assertEqual(adt.strip_ns("plain"), "plain")
+
+
+class SapControlEndpoints(unittest.TestCase):
+    def setUp(self):
+        import os
+        os.environ["CREDS_HOST"] = "h.example"
+        os.environ["CREDS_SYSNR"] = "00"
+
+    def test_http_port_is_5nn13(self):
+        self.assertEqual(ctl.endpoint(None, None, False), "http://h.example:50013/")
+
+    def test_https_port_is_5nn14(self):
+        self.assertEqual(ctl.endpoint(None, None, True), "https://h.example:50014/")
+
+    def test_instance_argument_overrides_and_pads(self):
+        self.assertEqual(ctl.endpoint("x", "1", False), "http://x:50113/")
+
+    def test_double_digit_instance(self):
+        self.assertEqual(ctl.endpoint("x", "10", False), "http://x:51013/")
+
+    def test_rows_flattens_item_elements(self):
+        import xml.etree.ElementTree as ET
+        xml = ET.fromstring("<r><item><a>1</a><b>two</b></item>"
+                            "<item><a>3</a><b></b></item></r>")
+        self.assertEqual(ctl.rows(xml), [{"a": "1", "b": "two"}, {"a": "3", "b": ""}])
+
+    def test_rows_on_empty_response(self):
+        import xml.etree.ElementTree as ET
+        self.assertEqual(ctl.rows(ET.fromstring("<r/>")), [])
 
 
 class SkillIntegrity(unittest.TestCase):
