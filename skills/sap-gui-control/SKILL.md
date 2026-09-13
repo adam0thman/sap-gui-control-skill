@@ -193,13 +193,17 @@ swift $SK/ax_okcode.swift probe "ECD (2)"                 # read screen, list bu
 swift $SK/ax_okcode.swift run   "ECD (2)" "/nSE16"        # write OK-code + submit
 swift $SK/ax_okcode.swift type  "ECD (2)" "/nSE16"        # write without executing
 swift $SK/ax_okcode.swift press "ECD (2)" "Back (F3)"     # press a button by name
+swift $SK/ax_okcode.swift fields "ECD (2)"                # list writable fields on the screen
+swift $SK/ax_okcode.swift set    "ECD (2)" "Client" "100" # write a dynpro field by its label
 swift $SK/ax_okcode.swift press "Information" "Continue"  # clear a blocking popup
 ```
 
 Always address a session by **window name**, never coordinates; the script warns rather than
 guessing when a name matches several windows. Set `SAP_PROD_SIDS=S4P,ECP` to have state-changing
-actions refuse those SIDs without `--allow-prod` — **with it unset there is no protection on this
-path**, because a window title carries a SID but not an environment.
+actions refuse those SIDs without `--allow-prod` (verified live: refused when listed, permitted
+with the override, unaffected when unlisted) — but **with it unset there is no protection on this
+path**, because a window title carries a SID but not an environment. Note this landscape contains
+a sandbox whose SID is literally `PRD`, so SID-based inference is unreliable in both directions.
 
 ## Channel 6 — SAP GUI scripting (JavaScript)
 
@@ -213,8 +217,8 @@ bash $SK/sap_script.sh eval '<javascript>'
 ```
 
 **It starts its OWN SAP GUI instance — it does not attach to the SAP GUI you already have open.**
-Measured: a script opening a connection produced no window in the running app, and the running
-app's sessions are not visible to it. So channel 6 is for **self-contained** automation (open its
+Verified twice: a script opening a connection produced no window in the running app, and with a
+session logged on in the running app (`PRX (1)`) a script still reported `connections: 0`. So channel 6 is for **self-contained** automation (open its
 own connection, do the work, exit); to drive an **already-open** session use channel 5.
 
 The object model is Java-flavoured, **not** the Windows VBScript spelling — verified by reflection
@@ -284,8 +288,13 @@ the SAP server; detecting a blocking popup via `AXFocusedWindow`; selecting text
 - Selecting text in `AXStaticText` (ordinary screen content) — readable, not selectable.
 - `screencapture` of an occluded SAP window — returns a blank buffer.
 
-**Current limitation:** only the **command field** is writable. Filling arbitrary dynpro fields is
-not implemented yet, though the mechanism is the same.
+**Addressing dynpro fields.** SAP exposes both a caption and its input as `AXTextField` with the
+**same** `AXDescription` — on the logon screen "User" appears twice. `fields` and `set` tell them
+apart by the caption carrying its own text as its value, and by the input sitting to the right.
+Verified live: `Client` and `Logon Language` written and read back with SAP in the background.
+
+Every write is verified by reading it back, because `AXValue` writes report success and silently
+do nothing — a write that is not read back is a write that did not happen.
 
 ## Silent frontend gaps in SAP GUI for Java
 

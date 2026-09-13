@@ -138,7 +138,59 @@ func screenText() -> String {
     return out.joined(separator: " ¦ ")
 }
 
+/// Every input field on the screen, paired with the label that identifies it.
+///
+/// SAP exposes BOTH the label and its input as AXTextField with the SAME
+/// AXDescription — on the logon screen "User" appears twice. They are told apart
+/// by the label carrying its own text as its value (value == description) while
+/// the input does not, and by the input sitting to the right of the label.
+func inputFields() -> [(label: String, el: AXUIElement, x: Double)] {
+    var out: [(String, AXUIElement, Double)] = []
+    walk(win) { e in
+        guard role(e) == kAXTextFieldRole as String else { return }
+        let d = label(e)
+        guard !d.isEmpty else { return }
+        let v = s(e, kAXValueAttribute) ?? ""
+        if v == d { return }                      // this is the caption, not the input
+        var p = CGPoint.zero
+        if let pv = attr(e, kAXPositionAttribute) {
+            AXValueGetValue(pv as! AXValue, .cgPoint, &p)
+        }
+        out.append((d, e, Double(p.x)))
+    }
+    return out
+}
+
+/// Resolve a field by label. When several match, take the rightmost — the input
+/// sits to the right of its caption.
+func field(named wanted: String) -> AXUIElement? {
+    let hits = inputFields().filter { $0.label.caseInsensitiveCompare(wanted) == .orderedSame }
+    if hits.isEmpty { return nil }
+    return hits.max(by: { $0.x < $1.x })!.el
+}
+
+/// AXValue is not settable; selected-text replacement is the only write channel.
+func writeInto(_ f: AXUIElement, _ text: String) -> Bool {
+    let n = (attr(f, "AXNumberOfCharacters") as? Int) ?? 0
+    var r = CFRange(location: 0, length: n)
+    if let rv = AXValueCreate(.cfRange, &r) {
+        AXUIElementSetAttributeValue(f, "AXSelectedTextRange" as CFString, rv)
+    }
+    AXUIElementSetAttributeValue(f, "AXSelectedText" as CFString, text as CFTypeRef)
+    usleep(400_000)
+    return (s(f, kAXValueAttribute) ?? "") == text
+}
+
 print("window: [\(title)]")
+
+if mode == "fields" {
+    let fs = inputFields()
+    if fs.isEmpty { print("no writable input fields found on this screen") }
+    for f in fs.sorted(by: { $0.x < $1.x }) {
+        print("  [\(f.label)] = [\(s(f.el, kAXValueAttribute) ?? "")]")
+    }
+    exit(0)
+}
 
 if mode == "probe" {
     if let p = blockingPopup() { print("BLOCKED: input owned by [\(p)]") }
@@ -157,6 +209,25 @@ if let p = blockingPopup() {
     print("BLOCKED: input is owned by [\(p)], not [\(title)].")
     print("         Dismiss that popup, or target it directly.")
     exit(2)
+}
+
+if mode == "set" {
+    refuseIfProd()
+    let parts = a.count > 4 ? (a[3], a[4]) : (arg, "")
+    guard let f = field(named: parts.0) else {
+        print("FAIL: no input field labelled '\(parts.0)'. Available:")
+        for x in inputFields().sorted(by: { $0.x < $1.x }) { print("  [\(x.label)]") }
+        exit(3)
+    }
+    let before = s(f, kAXValueAttribute) ?? ""
+    // Always verify: AXValue writes report success and silently do nothing, so a
+    // write that is not read back is a write that did not happen.
+    guard writeInto(f, parts.1) else {
+        print("FAIL: wrote '\(parts.1)' to [\(parts.0)] but it did not take (still [\(s(f, kAXValueAttribute) ?? "")])")
+        exit(1)
+    }
+    print("set [\(parts.0)]: [\(before)] -> [\(s(f, kAXValueAttribute) ?? "")]")
+    exit(0)
 }
 
 if mode == "press" {

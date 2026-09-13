@@ -26,15 +26,21 @@ table parsing, BAPIRET2 detection, the prod guard, ADT URL derivation and skill 
 macOS runs the tests plus shell, Python and Swift checks and asserts the skill stays
 self-contained. No dependencies, no build step.
 
+**M2 — dynpro field addressing.** `ax_okcode.swift` gained `fields` (list writable inputs) and
+`set <label> <text>` (write one by label), so it can fill a screen, not merely navigate. Captions
+and inputs share an `AXDescription` in SAP, and are told apart by the caption carrying its own
+text as its value and the input sitting to its right. Verified live against a `PRX` logon screen
+with SAP in the background. Every write is read back, because `AXValue` writes report success and
+silently do nothing.
+
+**GUI prod guard verified.** Refused a state-changing action on a SID listed in `SAP_PROD_SIDS`,
+permitted it with `--allow-prod`, and left unlisted SIDs alone.
+
 **Channels 0, 3 and 6 implemented.** SAPControl over SOAP (no SAP login needed at all); ADT client
 with a layered `ping` diagnosis; GUI-scripting runner with a verified object model.
 
 ## Not verified yet — do not assume these work
 
-- **GUI-side prod guard** (`SAP_PROD_SIDS` in `ax_okcode.swift`). Written, never exercised: no
-  session was logged on. It is also weaker by design — a window title carries a SID but not an
-  environment, and this landscape contains a sandbox whose SID is literally `PRD`, so SID-based
-  inference is unreliable. **With `SAP_PROD_SIDS` unset there is no protection on the GUI path.**
 - **ADT happy path.** Every system reached so far rejects basic auth for authenticated services
   (`/sap/public/ping` 200, `/sap/bc/ping` 403), consistent with SNC/SSO-only logon. The failure
   diagnosis is verified; a successful `discovery`/`transports`/`source` call is not.
@@ -45,17 +51,11 @@ with a layered `ping` diagnosis; GUI-scripting runner with a verified object mod
 - **Channel 2 against a real database.** The read-only guard is unit-tested, but no HANA was
   reachable (every SQL port closed on the reachable host; the `kind: hana` entries need the
   TNB VPN), so connect/query is unexercised.
-- **Channel 6 against a live session.** `probe` works and the object model is confirmed by
-  reflection, but no script has driven a logged-on session, and
-  `openConnectionByConnectionString` blocked when tried.
+- **Channel 6 driving a session.** Now resolved in the negative: with `PRX (1)` logged on in the
+  running app, a script still reported `connections: 0`, confirming it runs its own instance.
+  Channel 6 is for self-contained automation only; driving an open session stays with channel 5.
 
 ## Next
-
-**M2 — write to any dynpro field.** The biggest functional gap: `ax_okcode.swift` can only write
-the command field, so it can navigate but not fill in a screen. The mechanism is already proven
-(`AXSelectedTextRange` + `AXSelectedText` on an `AXTextField`); it needs generalising to address
-fields by label and verify after write. **Requires a logged-on session to develop against** —
-worth doing live rather than shipping blind.
 
 **M6 — multi-step sequencing.** Run a sequence of steps with verification between each, ideally
 cross-channel (act on 5, verify on 1). Only worth doing after M2.
