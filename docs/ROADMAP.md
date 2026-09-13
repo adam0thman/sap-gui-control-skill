@@ -1,0 +1,69 @@
+# Roadmap
+
+Status as of 2026-09-13. "Verified" means tested against a real SAP system, not merely written.
+
+## Channels
+
+| # | Channel | Script | State |
+|---|---------|--------|-------|
+| 0 | OS / `sapcontrol` / ssh | — | guidance only |
+| 1 | RFC / BAPI | `sap_rfc.py` | **verified** — reads, writes, guards, all live |
+| 2 | Direct DB (read-only) | — | guidance only (5 `kind: hana` creds exist) |
+| 3 | ADT over HTTP | `sap_adt.py` | **partly verified** — see below |
+| 4 | OData / RAP | — | guidance only |
+| 5 | AX background GUI | `ax_okcode.swift` | **verified** — read, write, press, submit, popup guard |
+| 6 | SAP GUI scripting | `sap_script.sh` | **partly verified** — see below |
+| 7 | Vision + mouse | (built-in) | last resort |
+
+## Done
+
+**M1 — write safety.** `sap_rfc.py` writes are opt-in: without `--commit` a call is validate-only
+and always rolled back; a BAPI returning `E`/`A` is rolled back and never committed; committing
+against `CREDS_ENV=prd` is refused without `--allow-prod`. All three verified live.
+
+**M3 — tests and CI.** 25 stdlib-only unit tests (`python3 -m unittest discover -s tests`) over
+table parsing, BAPIRET2 detection, the prod guard, ADT URL derivation and skill integrity. CI on
+macOS runs the tests plus shell, Python and Swift checks and asserts the skill stays
+self-contained. No dependencies, no build step.
+
+**Channels 3 and 6 implemented.** ADT client with a layered `ping` diagnosis; GUI-scripting runner
+with a verified object model.
+
+## Not verified yet — do not assume these work
+
+- **GUI-side prod guard** (`SAP_PROD_SIDS` in `ax_okcode.swift`). Written, never exercised: no
+  session was logged on. It is also weaker by design — a window title carries a SID but not an
+  environment, and this landscape contains a sandbox whose SID is literally `PRD`, so SID-based
+  inference is unreliable. **With `SAP_PROD_SIDS` unset there is no protection on the GUI path.**
+- **ADT happy path.** Every system reached so far rejects basic auth for authenticated services
+  (`/sap/public/ping` 200, `/sap/bc/ping` 403), consistent with SNC/SSO-only logon. The failure
+  diagnosis is verified; a successful `discovery`/`transports`/`source` call is not.
+- **Channel 6 against a live session.** `probe` works and the object model is confirmed by
+  reflection, but no script has driven a logged-on session, and
+  `openConnectionByConnectionString` blocked when tried.
+
+## Next
+
+**M2 — write to any dynpro field.** The biggest functional gap: `ax_okcode.swift` can only write
+the command field, so it can navigate but not fill in a screen. The mechanism is already proven
+(`AXSelectedTextRange` + `AXSelectedText` on an `AXTextField`); it needs generalising to address
+fields by label and verify after write. **Requires a logged-on session to develop against** —
+worth doing live rather than shipping blind.
+
+**M4 — channel 0 script.** `sapcontrol` over ssh: process list, work processes, syslog, instance
+state. Valuable because it works when the ABAP stack is jammed and no login is possible, and
+because `kind: ssh` creds already exist. Probably the cheapest remaining win.
+
+**M5 — channel 2 script.** Read-only DB query helper. `kind: hana` creds exist; no client is
+installed locally, so it would run over ssh to the DB host. Must stay read-only and handle the
+traps documented in SKILL.md (MANDT, pool/cluster tables, buffering).
+
+**M6 — multi-step sequencing.** Run a sequence of steps with verification between each, ideally
+cross-channel (act on 5, verify on 1). Only worth doing after M2.
+
+**M7 — close the verification gaps above**, as systems allowing them become available.
+
+## Not planned
+
+Channel 4 (OData) until a system here exposes services worth calling. Channel 7 needs no script —
+it is the built-in computer-use tool, and the skill's job is to keep tasks away from it.

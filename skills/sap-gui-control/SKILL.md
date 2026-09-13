@@ -22,10 +22,10 @@ SK=~/.claude/skills/sap-gui-control/scripts
 | 0 | OS / `sapcontrol` / ssh | ~free | no | guidance |
 | 1 | **RFC / BAPI** | ~free | no | **`sap_rfc.py`** |
 | 2 | Direct DB, **read-only** | ~free | no | guidance |
-| 3 | ADT / sapcli (HTTP) | ~free | no | guidance |
+| 3 | **ADT / sapcli** (HTTP) | ~free | no | **`sap_adt.py`** |
 | 4 | OData / RAP | ~free | no | guidance |
 | 5 | **AX background GUI control** | low | **no** | **`ax_okcode.swift`** |
-| 6 | SAP GUI scripting (`GuiStartS.jar`) | low | no | guidance |
+| 6 | **SAP GUI scripting** (`GuiStartS.jar`) | low | no | **`sap_script.sh`** |
 | 7 | WebGUI / HTML (browser) | low–med | browser only | guidance |
 | 8 | Vision + mouse (computer-use) | **high** | **yes** | last resort |
 
@@ -126,6 +126,31 @@ faster:
 
 Prefer channel 1 for anything it can answer. Reach here for the reads it cannot.
 
+## Channel 3 — ADT over HTTP
+
+ABAP Development Tools REST API: source, transports, object search, ABAP Unit. Read-only here;
+ADT writes need a CSRF token and are deliberately not implemented.
+
+```bash
+creds exec <id> -- python3 $SK/sap_adt.py ping          # start here — isolates the failure layer
+creds exec <id> -- python3 $SK/sap_adt.py discovery
+creds exec <id> -- python3 $SK/sap_adt.py transports --user <USER>
+creds exec <id> -- python3 $SK/sap_adt.py search "ZCL_*"
+creds exec <id> -- python3 $SK/sap_adt.py source programs/programs/RSPARAM
+```
+
+**Run `ping` first when anything fails.** A bare 403 looks like "ADT is switched off" when the real
+cause is usually different, and `ping` separates the three layers:
+
+| Symptom | Meaning |
+|---|---|
+| `/sap/public/ping` unreachable | host/port not routable — ADT is plain HTTP and does **not** traverse a SAProuter. Use channel 1. |
+| `/sap/public/ping` 200 but `/sap/bc/ping` 403 | basic auth rejected for **all** authenticated services, not just ADT — typical where only SNC/SSO is accepted. Channel 3 is unusable; use channel 1. |
+| `/sap/bc/ping` OK but ADT 403/404 | ADT specifically: activate `/sap/bc/adt/*` in SICF and check `S_ADT_RES`. |
+
+Measured on a sandbox here: ICM answered 200 unauthenticated and 403 authenticated, i.e. the second
+row — so on SNC/SSO systems expect to fall back to channel 1.
+
 ## Channel 5 — background GUI control (AX)
 
 For transactions with no headless equivalent. No screenshots, no coordinates, no focus stealing.
@@ -143,19 +168,49 @@ guessing when a name matches several windows. Set `SAP_PROD_SIDS=S4P,ECP` to hav
 actions refuse those SIDs without `--allow-prod` — **with it unset there is no protection on this
 path**, because a window title carries a SID but not an environment.
 
-## Channels 0, 3, 4, 6, 7 — no script here yet
+## Channel 6 — SAP GUI scripting (JavaScript)
+
+SAP GUI for Java embeds a JavaScript engine with the GUI Scripting object model. Once a routine is
+written down it replays deterministically, which beats channel 5 for anything done repeatedly.
+
+```bash
+bash $SK/sap_script.sh probe              # version + connections/sessions
+bash $SK/sap_script.sh run  myflow.js     # run a script file (synchronous)
+bash $SK/sap_script.sh eval '<javascript>'
+```
+
+**It starts its OWN SAP GUI instance — it does not attach to the SAP GUI you already have open.**
+Measured: a script opening a connection produced no window in the running app, and the running
+app's sessions are not visible to it. So channel 6 is for **self-contained** automation (open its
+own connection, do the work, exit); to drive an **already-open** session use channel 5.
+
+The object model is Java-flavoured, **not** the Windows VBScript spelling — verified by reflection
+against `GuiApplicationWrapper`:
+
+```js
+application.getMajorVersion()
+var conns = application.getConnections();   conns.getLength();   conns.elementAt(i)
+var ses   = conn.getSessions();             ses.getLength();     ses.elementAt(j)
+application.findById("...")
+application.openConnectionByConnectionString("/H/host/S/32<nn>")
+java.lang.System.out.println(x)             // this is how you print
+```
+
+`application.Children.Count` is undefined here. Two operational notes: the JVM does **not** exit
+after the script finishes (runs are bounded by `SAP_SCRIPT_TIMEOUT`, default 60s — exit 124 is
+normal, not a failure), and SAP GUI Scripting must be enabled on both sides
+(`sapgui/user_scripting = TRUE` server-side plus the client setting) or the session objects stay
+invisible.
+
+## Channels 0, 4, 7 — no script here yet
 
 Use them directly; they are still usually the right answer.
 
 - **0 — OS / sapcontrol**: `ssh <host>` (hosts are in `~/.ssh/config.d/local-creds`), then
   `sapcontrol -nr <nr> -function GetProcessList` / `ABAPGetWPTable` / `ABAPReadSyslog`. Works when
   the ABAP stack is jammed and no login is possible.
-- **3 — ADT / sapcli**: ABAP source, activation, transports, ABAP Unit over HTTP.
 - **4 — OData / RAP**: published S/4 APIs. Note S/4HANA **Cloud** blocks RFC entirely, so there
   channel 4 replaces channel 1.
-- **6 — SAP GUI scripting**: SAP GUI for Java ships a JavaScript engine;
-  `java -jar GuiStartS.jar -f script.js` replays a recorded routine deterministically. Better than
-  channel 5 for anything repeated.
 - **7 — WebGUI**: the same dynpros rendered as HTML, drivable through a browser.
 
 ## When input fails, never guess

@@ -1,0 +1,42 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    # macOS because the GUI channel is Swift. Everything else is stdlib Python
+    # and bash, so there is nothing to install.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests (stdlib only)
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Shell syntax
+        run: |
+          for f in skills/sap-gui-control/scripts/*.sh; do
+            echo "checking $f"; bash -n "$f"
+          done
+
+      - name: Python syntax
+        run: |
+          for f in skills/sap-gui-control/scripts/*.py; do
+            echo "checking $f"; python3 -m py_compile "$f"
+          done
+
+      - name: Swift typecheck
+        run: swiftc -typecheck skills/sap-gui-control/scripts/ax_okcode.swift
+
+      - name: Skill is self-contained
+        # It is installed by copying this directory verbatim, so it must not
+        # reference anything outside itself.
+        run: |
+          if grep -rn "\.\./\.\./" skills/sap-gui-control/ ; then
+            echo "skill references paths outside its own directory"; exit 1
+          fi
+          test -f skills/sap-gui-control/SKILL.md
+          test -f skills/sap-gui-control/INSTALL.md
