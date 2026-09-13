@@ -26,7 +26,10 @@ scripts/*.local.js
 evidence/
 
 # NW RFC SDK trace logs (generated at runtime; contain local paths/usernames)
-dev_rfc.log
+# NW RFC SDK / pyrfc trace output (can contain connection details)
+dev_rfc*.log
+*.trc
+rfc*.trc
 dev_rfc.trc
 *.trc
 rfc*.trc

@@ -82,6 +82,10 @@ if [ -z "$focw" ]; then
   warn "no AX focused window — $APP may not be active"
 elif printf '%s' "$focw" | grep -qE '^[A-Z0-9]+ \([0-9]+\) \([0-9]+\)$'; then
   ok "focused window is a session: [$focw]"
+elif [ "$focw" = "SAP GUI for Java" ]; then
+  # The connection/logon manager is a normal top-level window, not a dynpro popup.
+  # It does not own input for any session, so it blocks nothing.
+  warn "the SAP GUI connection manager has focus — no session is active, but sessions are not blocked"
 else
   block "a SAP popup owns input: [$focw] — dismiss it before driving the session"
 fi

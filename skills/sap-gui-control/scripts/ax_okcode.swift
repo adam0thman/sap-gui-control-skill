@@ -92,7 +92,11 @@ func enterButton() -> AXUIElement? { commandToolbar().first { role($0) == kAXBut
 func blockingPopup() -> String? {
     guard let fw = attr(ax, "AXFocusedWindow") else { return nil }
     let owner = s(fw as! AXUIElement, kAXTitleAttribute) ?? "?"
-    return owner == title ? nil : owner
+    if owner == title { return nil }
+    // The connection/logon manager is a normal top-level window, not a dynpro
+    // popup of a session — it owns input for nothing and blocks nothing.
+    if owner == "SAP GUI for Java" { return nil }
+    return owner
 }
 
 /// AXValue is NOT settable; selected-text replacement is the write channel.

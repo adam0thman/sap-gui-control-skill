@@ -219,5 +219,7 @@ refusal names that dialog and that nothing was written.
 - **Unnamed controls**: A small number of controls carry no accessible name and must be addressed
   by their position within their container. This is accepted, and such addressing is expected to
   be documented where used rather than spread implicitly through the code.
-- **Existing reference**: Working reference implementations exist at `scripts/ax_okcode.swift`
-  and `scripts/tier3_preflight.sh` and establish feasibility of every requirement above.
+- **Existing reference**: Working reference implementations live in `skills/sap-gui-control/scripts/`
+  (`ax_okcode.swift`, `tier3_preflight.sh`) and establish feasibility of every requirement above.
+  That directory is the single canonical copy — it is installed verbatim to `~/.claude/skills/`,
+  so it must stay self-contained.
