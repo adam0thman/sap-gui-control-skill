@@ -8,7 +8,7 @@ Status as of 2026-09-13. "Verified" means tested against a real SAP system, not 
 |---|---------|--------|-------|
 | 0 | OS / SAPControl | `sap_control.py` | **partly verified** — unauthenticated calls live; protected calls need an OS `<sid>adm` account |
 | 1 | RFC / BAPI | `sap_rfc.py` | **verified** — reads, writes, guards, all live |
-| 2 | Direct DB (read-only) | — | guidance only (5 `kind: hana` creds exist) |
+| 2 | Direct DB (read-only) | `sap_db.py` | **guard verified**, connection unverified — no reachable HANA |
 | 3 | ADT over HTTP | `sap_adt.py` | **partly verified** — see below |
 | 4 | OData / RAP | — | guidance only |
 | 5 | AX background GUI | `ax_okcode.swift` | **verified** — read, write, press, submit, popup guard |
@@ -42,6 +42,9 @@ with a layered `ping` diagnosis; GUI-scripting runner with a verified object mod
   verified live and need no credentials. The protected calls authenticate against the OS
   `<sid>adm` account, not a SAP logon — neither the SAP user nor the two available OS accounts
   were accepted on the instance tested, so those paths remain unexercised.
+- **Channel 2 against a real database.** The read-only guard is unit-tested, but no HANA was
+  reachable (every SQL port closed on the reachable host; the `kind: hana` entries need the
+  TNB VPN), so connect/query is unexercised.
 - **Channel 6 against a live session.** `probe` works and the object model is confirmed by
   reflection, but no script has driven a logged-on session, and
   `openConnectionByConnectionString` blocked when tried.
@@ -53,10 +56,6 @@ the command field, so it can navigate but not fill in a screen. The mechanism is
 (`AXSelectedTextRange` + `AXSelectedText` on an `AXTextField`); it needs generalising to address
 fields by label and verify after write. **Requires a logged-on session to develop against** —
 worth doing live rather than shipping blind.
-
-**M5 — channel 2 script.** Read-only DB query helper. `kind: hana` creds exist; no client is
-installed locally, so it would run over ssh to the DB host. Must stay read-only and handle the
-traps documented in SKILL.md (MANDT, pool/cluster tables, buffering).
 
 **M6 — multi-step sequencing.** Run a sequence of steps with verification between each, ideally
 cross-channel (act on 5, verify on 1). Only worth doing after M2.

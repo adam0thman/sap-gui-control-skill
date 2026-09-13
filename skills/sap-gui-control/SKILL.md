@@ -21,7 +21,7 @@ SK=~/.claude/skills/sap-gui-control/scripts
 |---|---------|------|-------------------|-------------|
 | 0 | **OS / SAPControl** | ~free | no | **`sap_control.py`** |
 | 1 | **RFC / BAPI** | ~free | no | **`sap_rfc.py`** |
-| 2 | Direct DB, **read-only** | ~free | no | guidance |
+| 2 | **Direct DB, read-only** | ~free | no | **`sap_db.py`** |
 | 3 | **ADT / sapcli** (HTTP) | ~free | no | **`sap_adt.py`** |
 | 4 | OData / RAP | ~free | no | guidance |
 | 5 | **AX background GUI control** | low | **no** | **`ax_okcode.swift`** |
@@ -123,9 +123,19 @@ confirming with the user first.
 
 ## Channel 2 — direct database, read-only
 
-Query the SAP schema directly (`hdbsql`, `sqlplus`, `db2`, `isql`), normally over ssh to the DB
-host — `creds find hana` lists the entries, which carry tenant, ports and a `connect` hint, and
-often a `requires: vpn:...` prerequisite.
+```bash
+creds exec <hana-id> -- python3 $SK/sap_db.py ping
+creds exec <hana-id> -- python3 $SK/sap_db.py table T000 --schema SAPABAP1 --rows 10
+creds exec <hana-id> -- python3 $SK/sap_db.py sql "SELECT TOP 5 MANDT, MTEXT FROM SAPABAP1.T000"
+```
+
+`creds find hana` lists the entries, which carry tenant, ports and a `connect` hint, and often a
+`requires: vpn:...` prerequisite. Needs the SAP HANA client (`hdbcli`).
+
+**Read-only is enforced in code, not merely advised** — anything that is not a single `SELECT` is
+refused, including statement chaining. The guard is deliberately conservative: a `SELECT` that
+merely mentions a DML keyword is rejected rather than parsed, because a false refusal costs
+nothing and a false permit corrupts a system.
 
 **Use it when RFC genuinely cannot cope:** joins and aggregations (`RFC_READ_TABLE` does neither),
 very large result sets, or rows wider than `RFC_READ_TABLE`'s ~512-byte limit. It is also the

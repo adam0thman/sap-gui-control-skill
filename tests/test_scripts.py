@@ -24,6 +24,7 @@ def load(name):
 rfc = load("sap_rfc")
 adt = load("sap_adt")
 ctl = load("sap_control")
+db  = load("sap_db")
 
 
 class TableParsing(unittest.TestCase):
@@ -167,6 +168,40 @@ class SapControlEndpoints(unittest.TestCase):
     def test_rows_on_empty_response(self):
         import xml.etree.ElementTree as ET
         self.assertEqual(ctl.rows(ET.fromstring("<r/>")), [])
+
+
+class DbReadOnlyGuard(unittest.TestCase):
+    """Enforced, not advised: writing behind the application server is never correct."""
+
+    def _refused(self, sql):
+        with self.assertRaises(SystemExit, msg=sql):
+            db.guard_read_only(sql)
+
+    def test_select_is_allowed(self):
+        db.guard_read_only("SELECT * FROM T000")
+        db.guard_read_only("  select a from b where c = 'd'")
+
+    def test_dml_and_ddl_refused(self):
+        for sql in ("DELETE FROM T000", "UPDATE T000 SET X=1", "INSERT INTO T000 VALUES(1)",
+                    "DROP TABLE T000", "TRUNCATE TABLE T000", "ALTER TABLE T000 ADD X INT",
+                    "CREATE TABLE X (A INT)", "MERGE INTO T000", "GRANT ALL TO X",
+                    "CALL SOME_PROC()"):
+            self._refused(sql)
+
+    def test_case_insensitive(self):
+        self._refused("drop table t000")
+        self._refused("DeLeTe FROM t000")
+
+    def test_statement_chaining_refused(self):
+        self._refused("SELECT 1; DROP TABLE T000")
+
+    def test_select_with_forbidden_keyword_in_it_is_refused(self):
+        # Conservative on purpose: a SELECT mentioning a DML keyword is rejected
+        # rather than parsed. False negatives are cheaper than a write.
+        self._refused("SELECT * FROM T WHERE NAME = 'delete me'")
+
+    def test_trailing_semicolon_is_tolerated(self):
+        db.guard_read_only("SELECT 1;")
 
 
 class SkillIntegrity(unittest.TestCase):
