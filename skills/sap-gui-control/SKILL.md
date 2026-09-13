@@ -148,5 +148,6 @@ macOS + SAP GUI for Java, and Accessibility permission granted to the calling pr
 scripts report unavailability clearly rather than failing obscurely. Sessions must already be
 open and logged on; these scripts drive existing sessions, they do not log on.
 
-Full background and the reasoning behind every point above:
-`~/Dropbox/Projects/sapgui-computer-use-mcp` (`docs/`, `specs/001-ax-background-control/`).
+Full background and the reasoning behind every point above — including how each entry in the
+capability map was measured — is in the project README:
+https://github.com/adam0thman/sap-gui-control-skill
