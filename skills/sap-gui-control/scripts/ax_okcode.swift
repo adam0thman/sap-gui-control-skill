@@ -114,6 +114,12 @@ func blockingPopup() -> String? {
     // The connection/logon manager is a normal top-level window, not a dynpro
     // popup of a session — it owns input for nothing and blocks nothing.
     if owner == "SAP GUI for Java" { return nil }
+    // Another SESSION window ("ECP (1) (310)") having focus is not a popup either:
+    // sessions are independent, and refusing here made every action on the
+    // unfocused session fail whenever two were open.
+    if owner.range(of: #"^[A-Z0-9]+ \(\d+\) \(\d+\)$"#, options: .regularExpression) != nil {
+        return nil
+    }
     return owner
 }
 
