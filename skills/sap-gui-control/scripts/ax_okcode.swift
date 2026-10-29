@@ -230,11 +230,48 @@ if mode == "set" {
     exit(0)
 }
 
+if mode == "check" {
+    refuseIfProd()
+    let wantState = a.count > 4 ? a[4].lowercased() : "toggle"
+    var cb: AXUIElement?
+    walk(win) { e in
+        if cb == nil, role(e) == "AXCheckBox" || role(e) == "AXRadioButton", label(e) == arg { cb = e }
+    }
+    guard let box = cb else {
+        print("FAIL: no checkbox/radio labelled '\(arg)'. Available:")
+        walk(win) { e in if role(e) == "AXCheckBox" || role(e) == "AXRadioButton", !label(e).isEmpty {
+            print("  [\(label(e))]") } }
+        exit(3)
+    }
+    func state() -> Int { (attr(box, kAXValueAttribute) as? Int) ?? -1 }
+    let before = state()
+    if (wantState == "on" && before == 1) || (wantState == "off" && before == 0) {
+        print("check [\(arg)]: already \(wantState) — no action"); exit(0)
+    }
+    // AXValue is not settable on this app; AXPress is the only toggle channel.
+    let r = AXUIElementPerformAction(box, kAXPressAction as CFString)
+    usleep(500_000)
+    let after = state()
+    print("check [\(arg)]: \(before) -> \(after)  (press \(r == .success ? "ok" : "err"))")
+    // Verify, because a press that reports success but changes nothing is the
+    // exact failure mode that makes an agent invent a blocking dialog.
+    if after == before {
+        print("FAIL: value did not change — the press was accepted but had no effect."); exit(1)
+    }
+    if wantState == "on" && after != 1 || wantState == "off" && after != 0 {
+        print("FAIL: wanted \(wantState) but value is \(after)"); exit(1)
+    }
+    exit(0)
+}
+
 if mode == "press" {
     refuseIfProd()
     var b: AXUIElement?
-    walk(win) { e in if b == nil, role(e) == kAXButtonRole as String, label(e) == arg { b = e } }
-    guard let btn = b else { print("FAIL: no button labelled '\(arg)'"); exit(3) }
+    // Checkboxes and radio buttons are AXCheckBox / AXRadioButton, not AXButton.
+    // Matching only AXButton is why "tick the checkbox" used to report no such button.
+    let pressable: Set<String> = [kAXButtonRole as String, "AXCheckBox", "AXRadioButton"]
+    walk(win) { e in if b == nil, pressable.contains(role(e)), label(e) == arg { b = e } }
+    guard let btn = b else { print("FAIL: no button/checkbox/radio labelled '\(arg)'"); exit(3) }
     let r = AXUIElementPerformAction(btn, kAXPressAction as CFString)
     print("press [\(arg)] -> \(r == .success ? "success" : "err \(r.rawValue)")")
     exit(r == .success ? 0 : 1)

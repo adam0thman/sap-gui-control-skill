@@ -195,6 +195,7 @@ swift $SK/ax_okcode.swift type  "ECD (2)" "/nSE16"        # write without execut
 swift $SK/ax_okcode.swift press "ECD (2)" "Back (F3)"     # press a button by name
 swift $SK/ax_okcode.swift fields "ECD (2)"                # list writable fields on the screen
 swift $SK/ax_okcode.swift set    "ECD (2)" "Client" "100" # write a dynpro field by its label
+swift $SK/ax_okcode.swift check  "ECD (2)" "Test Run" on   # tick/untick a checkbox or radio, verified
 swift $SK/ax_okcode.swift press "Information" "Continue"  # clear a blocking popup
 ```
 
@@ -295,6 +296,18 @@ Verified live: `Client` and `Logon Language` written and read back with SAP in t
 
 Every write is verified by reading it back, because `AXValue` writes report success and silently
 do nothing — a write that is not read back is a write that did not happen.
+
+**Checkboxes and radio buttons** are `AXCheckBox` / `AXRadioButton`, not `AXButton`. An earlier
+version of `press` matched only `AXButton`, which is why "tick the checkbox" reported no such
+button. `press` now matches all three, and `check` toggles by label and **verifies the value
+changed** (`AXValue` is readable on them but not settable; `AXPress` is the only toggle channel).
+Read-only scan confirms `AXPress` is exposed on them; the toggle *effect* has not yet been
+exercised on a sandbox — verify before relying on it for anything irreversible.
+
+**Do not auto-connect through the connection manager.** Its connection tree has zero AX
+children, so the only route is writing the toolbar filter and pressing `Connect` — and that
+selected the **wrong system twice**, once a production system, because the tree's selection is
+independent of the filter text. Have the user open the session; drive it once it exists.
 
 ## Silent frontend gaps in SAP GUI for Java
 
