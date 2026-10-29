@@ -50,7 +50,7 @@ var a = CommandLine.arguments
 let allowProd = a.contains("--allow-prod")
 a.removeAll { $0 == "--allow-prod" }
 guard a.count >= 3 else {
-    FileHandle.standardError.write("usage: probe|type|run|press <window-substring> [text|button]\n".data(using: .utf8)!)
+    FileHandle.standardError.write("usage: probe|fields|type|run|press|set|check <window-substring> [args]\n".data(using: .utf8)!)
     exit(64)
 }
 let mode = a[1], want = a[2], arg = a.count > 3 ? a[3] : ""
