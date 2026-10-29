@@ -301,8 +301,8 @@ do nothing — a write that is not read back is a write that did not happen.
 version of `press` matched only `AXButton`, which is why "tick the checkbox" reported no such
 button. `press` now matches all three, and `check` toggles by label and **verifies the value
 changed** (`AXValue` is readable on them but not settable; `AXPress` is the only toggle channel).
-Read-only scan confirms `AXPress` is exposed on them; the toggle *effect* has not yet been
-exercised on a sandbox — verify before relying on it for anything irreversible.
+Verified live on a sandbox (PRD/UM, 2026-10-30): `check` toggled an SM37 status checkbox
+`1 -> 0` and `0 -> 1`, each confirmed by readback. The press and readback both work.
 
 **Do not auto-connect through the connection manager.** Its connection tree has zero AX
 children, so the only route is writing the toolbar filter and pressing `Connect` — and that

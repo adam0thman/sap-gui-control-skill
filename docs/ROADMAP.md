@@ -1,6 +1,6 @@
 # Roadmap
 
-Status as of 2026-09-13. "Verified" means tested against a real SAP system, not merely written.
+Status as of 2026-10-30. "Verified" means tested against a real SAP system, not merely written.
 
 ## Channels
 
@@ -11,7 +11,7 @@ Status as of 2026-09-13. "Verified" means tested against a real SAP system, not 
 | 2 | Direct DB (read-only) | `sap_db.py` | **guard verified**, connection unverified — no reachable HANA |
 | 3 | ADT over HTTP | `sap_adt.py` | **partly verified** — see below |
 | 4 | OData / RAP | — | guidance only |
-| 5 | AX background GUI | `ax_okcode.swift` | **verified** — read, write, press, submit, popup guard |
+| 5 | AX background GUI | `ax_okcode.swift` | **verified** — read, write, press, checkbox/radio toggle, submit, popup guard |
 | 6 | SAP GUI scripting | `sap_script.sh` | **partly verified** — see below |
 | 7 | Vision + mouse | (built-in) | last resort |
 
